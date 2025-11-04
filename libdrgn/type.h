@@ -232,7 +232,8 @@ drgn_compound_type_builder_deinit(struct drgn_compound_type_builder *builder);
 struct drgn_error *
 drgn_compound_type_builder_add_member(struct drgn_compound_type_builder *builder,
 				      const union drgn_lazy_object *object,
-				      const char *name, uint64_t bit_offset);
+				      const char *name, uint64_t bit_offset,
+				      enum drgn_member_accessibility accessibility);
 
 /**
  * Create a structure, union, or class type.

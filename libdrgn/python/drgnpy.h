@@ -256,6 +256,7 @@ typedef struct {
 	LazyObject lazy_obj;
 	PyObject *name;
 	PyObject *bit_offset;
+	PyObject *accessibility;
 } TypeMember;
 
 typedef struct {

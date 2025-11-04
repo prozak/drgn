@@ -3466,6 +3466,7 @@ class TypeMember:
         object_or_type: Union[Object, Type, Callable[[], Union[Object, Type]]],
         name: Optional[str] = None,
         bit_offset: int = 0,
+        accessibility: int = 1,
     ) -> None:
         """
         Create a ``TypeMember``.
@@ -3480,6 +3481,7 @@ class TypeMember:
                the result is cached.
         :param name: :attr:`TypeMember.name`
         :param bit_offset: :attr:`TypeMember.bit_offset`
+        :param accessibility: :attr:`TypeMember.accessibility`
         """
         ...
     object: Final[Object]
@@ -3516,6 +3518,15 @@ class TypeMember:
     Size in bits of this member if it is a bit field, ``None`` if it is not.
 
     This is a shortcut for ``TypeMember.object.bit_field_size_``.
+    """
+
+    accessibility: Final[int]
+    """
+    Accessibility of the member (1 for public, 2 for protected, 3 for private).
+
+    This corresponds to the DW_AT_accessibility attribute in DWARF. If the
+    attribute is not present, the default accessibility is private (3) for class
+    members and public (1) for struct and union members.
     """
 
 class TypeEnumerator:

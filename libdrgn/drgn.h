@@ -3240,6 +3240,22 @@ enum drgn_primitive_type {
 	 */
 } __attribute__((__packed__));
 
+/**
+ * Accessibility of a member of a structure, union, or class type.
+ *
+ * This corresponds to the DW_AT_accessibility attribute in DWARF. If the
+ * attribute is not present, the default accessibility depends on the type kind:
+ * private for class members, public for struct and union members.
+ */
+enum drgn_member_accessibility {
+	/** Public member. */
+	DRGN_MEMBER_ACCESSIBILITY_PUBLIC = 1,
+	/** Protected member. */
+	DRGN_MEMBER_ACCESSIBILITY_PROTECTED = 2,
+	/** Private member. */
+	DRGN_MEMBER_ACCESSIBILITY_PRIVATE = 3,
+} __attribute__((__packed__));
+
 /** Member of a structure, union, or class type. */
 struct drgn_type_member {
 	/**
@@ -3259,6 +3275,12 @@ struct drgn_type_member {
 	 * of 8 (but that may not be the case for bit fields).
 	 */
 	uint64_t bit_offset;
+	/**
+	 * Accessibility of the member.
+	 *
+	 * See @ref drgn_member_accessibility.
+	 */
+	enum drgn_member_accessibility accessibility;
 };
 
 /** Value of an enumerated type. */

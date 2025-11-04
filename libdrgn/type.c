@@ -544,7 +544,8 @@ drgn_compound_type_builder_deinit(struct drgn_compound_type_builder *builder)
 struct drgn_error *
 drgn_compound_type_builder_add_member(struct drgn_compound_type_builder *builder,
 				      const union drgn_lazy_object *object,
-				      const char *name, uint64_t bit_offset)
+				      const char *name, uint64_t bit_offset,
+				      enum drgn_member_accessibility accessibility)
 {
 	struct drgn_error *err =
 		drgn_lazy_object_check_prog(object,
@@ -558,6 +559,7 @@ drgn_compound_type_builder_add_member(struct drgn_compound_type_builder *builder
 	member->object = *object;
 	member->name = name;
 	member->bit_offset = bit_offset;
+	member->accessibility = accessibility;
 	return NULL;
 }
 

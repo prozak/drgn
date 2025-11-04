@@ -394,6 +394,7 @@ c_define_compound(struct drgn_qualified_type qualified_type, size_t indent,
 	if (!string_builder_append(sb, " {\n"))
 		return &drgn_enomem;
 
+	enum drgn_member_accessibility prev_accessibility = 0;
 	for (i = 0; i < num_members; i++) {
 		struct drgn_qualified_type member_type;
 		uint64_t member_bit_field_size;
@@ -401,6 +402,30 @@ c_define_compound(struct drgn_qualified_type qualified_type, size_t indent,
 				       &member_bit_field_size);
 		if (err)
 			return err;
+
+		/* Print accessibility label for C++ classes when it changes. */
+		if (drgn_type_kind(qualified_type.type) == DRGN_TYPE_CLASS &&
+		    members[i].accessibility != prev_accessibility) {
+			const char *access_label;
+			switch (members[i].accessibility) {
+			case DRGN_MEMBER_ACCESSIBILITY_PUBLIC:
+				access_label = "public";
+				break;
+			case DRGN_MEMBER_ACCESSIBILITY_PROTECTED:
+				access_label = "protected";
+				break;
+			case DRGN_MEMBER_ACCESSIBILITY_PRIVATE:
+				access_label = "private";
+				break;
+			default:
+				access_label = "/* unknown accessibility */";
+				break;
+			}
+			if (!append_tabs(indent, sb) ||
+			    !string_builder_appendf(sb, "%s:\n", access_label))
+				return &drgn_enomem;
+			prev_accessibility = members[i].accessibility;
+		}
 
 		const char *member_name = members[i].name;
 		struct string_callback name_cb = {

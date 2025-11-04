@@ -197,6 +197,9 @@ static TypeMember *TypeMember_wrap(PyObject *parent,
 	py_member->bit_offset = PyLong_FromUint64(bit_offset);
 	if (!py_member->bit_offset)
 		return NULL;
+	py_member->accessibility = PyLong_FromLong(member->accessibility);
+	if (!py_member->accessibility)
+		return NULL;
 	return_ptr(py_member);
 }
 
@@ -1030,11 +1033,12 @@ static int LazyObject_arg(PyObject *arg, const char *function_name,
 static TypeMember *TypeMember_new(PyTypeObject *subtype, PyObject *args,
 				  PyObject *kwds)
 {
-	static char *keywords[] = {"object_or_type", "name", "bit_offset", NULL};
-	PyObject *object, *name = Py_None, *bit_offset = NULL;
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OO!:TypeMember",
+	static char *keywords[] = {"object_or_type", "name", "bit_offset", "accessibility", NULL};
+	PyObject *object, *name = Py_None, *bit_offset = NULL, *accessibility = NULL;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OO!O!:TypeMember",
 					 keywords, &object, &name,
-					 &PyLong_Type, &bit_offset))
+					 &PyLong_Type, &bit_offset,
+					 &PyLong_Type, &accessibility))
 		return NULL;
 
 	if (name != Py_None && !PyUnicode_Check(name)) {
@@ -1066,12 +1070,22 @@ static TypeMember *TypeMember_new(PyTypeObject *subtype, PyObject *args,
 			return NULL;
 	}
 	member->bit_offset = bit_offset;
+	if (accessibility) {
+		Py_INCREF(accessibility);
+	} else {
+		/* Default to public (1) */
+		accessibility = PyLong_FromLong(DRGN_MEMBER_ACCESSIBILITY_PUBLIC);
+		if (!accessibility)
+			return NULL;
+	}
+	member->accessibility = accessibility;
 	return_ptr(member);
 }
 
 static void TypeMember_dealloc(TypeMember *self)
 {
 	PyObject_GC_UnTrack(self);
+	Py_XDECREF(self->accessibility);
 	Py_XDECREF(self->bit_offset);
 	Py_XDECREF(self->name);
 	LazyObject_dealloc((LazyObject *)self);
@@ -1123,6 +1137,8 @@ static PyMemberDef TypeMember_members[] = {
 	 drgn_TypeMember_name_DOC},
 	{"bit_offset", T_OBJECT, offsetof(TypeMember, bit_offset), READONLY,
 	 drgn_TypeMember_bit_offset_DOC},
+	{"accessibility", T_OBJECT, offsetof(TypeMember, accessibility), READONLY,
+	 drgn_TypeMember_accessibility_DOC},
 	{},
 };
 
@@ -1620,6 +1636,10 @@ static int unpack_member(struct drgn_compound_type_builder *builder,
 	if (bit_offset == (uint64_t)-1 && PyErr_Occurred())
 		return -1;
 
+	long accessibility = PyLong_AsLong(member->accessibility);
+	if (accessibility == -1 && PyErr_Occurred())
+		return -1;
+
 	union drgn_lazy_object object;
 	if (lazy_object_from_py(&object, (LazyObject *)member,
 				builder->template_builder.prog,
@@ -1627,7 +1647,8 @@ static int unpack_member(struct drgn_compound_type_builder *builder,
 		return -1;
 	struct drgn_error *err =
 		drgn_compound_type_builder_add_member(builder, &object, name,
-						      bit_offset);
+						      bit_offset,
+						      (enum drgn_member_accessibility)accessibility);
 	if (err) {
 		drgn_lazy_object_deinit(&object);
 		set_drgn_error(err);

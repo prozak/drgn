@@ -5716,6 +5716,7 @@ parse_member_offset(Dwarf_Die *die, union drgn_lazy_object *member_object,
 static struct drgn_error *
 parse_member(struct drgn_debug_info *dbinfo, struct drgn_elf_file *file,
 	     Dwarf_Die *die, bool little_endian, bool can_be_incomplete_array,
+	     enum drgn_type_kind kind,
 	     struct drgn_compound_type_builder *builder)
 {
 	struct drgn_error *err;
@@ -5730,6 +5731,42 @@ parse_member(struct drgn_debug_info *dbinfo, struct drgn_elf_file *file,
 		}
 	} else {
 		name = NULL;
+	}
+
+	/*
+	 * Parse DW_AT_accessibility. Per DWARF 5 spec section 5.7.6:
+	 * "If no accessibility attribute is present, private access is
+	 * assumed for a member of a class and public access is assumed for
+	 * a member of a structure, union, or interface."
+	 */
+	enum drgn_member_accessibility accessibility;
+	if ((attr = dwarf_attr_integrate(die, DW_AT_accessibility, &attr_mem))) {
+		Dwarf_Word access_code;
+		if (dwarf_formudata(attr, &access_code)) {
+			return drgn_error_create(DRGN_ERROR_OTHER,
+						 "DW_TAG_member has invalid DW_AT_accessibility");
+		}
+		switch (access_code) {
+		case DW_ACCESS_public:
+			accessibility = DRGN_MEMBER_ACCESSIBILITY_PUBLIC;
+			break;
+		case DW_ACCESS_protected:
+			accessibility = DRGN_MEMBER_ACCESSIBILITY_PROTECTED;
+			break;
+		case DW_ACCESS_private:
+			accessibility = DRGN_MEMBER_ACCESSIBILITY_PRIVATE;
+			break;
+		default:
+			return drgn_error_format(DRGN_ERROR_OTHER,
+						 "DW_TAG_member has unknown DW_AT_accessibility %#" PRIx64,
+						 (uint64_t)access_code);
+		}
+	} else {
+		/* Use default accessibility based on type kind. */
+		if (kind == DRGN_TYPE_CLASS)
+			accessibility = DRGN_MEMBER_ACCESSIBILITY_PRIVATE;
+		else
+			accessibility = DRGN_MEMBER_ACCESSIBILITY_PUBLIC;
 	}
 
 	struct drgn_dwarf_member_thunk_arg *thunk_arg =
@@ -5751,7 +5788,8 @@ parse_member(struct drgn_debug_info *dbinfo, struct drgn_elf_file *file,
 		goto err;
 
 	err = drgn_compound_type_builder_add_member(builder, &member_object,
-						    name, bit_offset);
+						    name, bit_offset,
+						    accessibility);
 	if (err)
 		goto err;
 	return NULL;
@@ -5950,6 +5988,7 @@ drgn_compound_type_from_dwarf(struct drgn_debug_info *dbinfo,
 					err = parse_member(dbinfo, file,
 							   &member,
 							   little_endian, false,
+							   kind,
 							   &builder);
 					if (err)
 						goto err;
@@ -5988,6 +6027,7 @@ drgn_compound_type_from_dwarf(struct drgn_debug_info *dbinfo,
 	if (member.addr) {
 		err = parse_member(dbinfo, file, &member, little_endian,
 				   kind != DRGN_TYPE_UNION && !first_member,
+				   kind,
 				   &builder);
 		if (err)
 			goto err;
